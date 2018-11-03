@@ -1,0 +1,98 @@
+Pitch of Course Project App
+========================================================
+author: M. Adriaanse
+date: 03-11-2018
+autosize: true
+
+Introduction
+========================================================
+
+In order to finish the Developing Data Products specialisation on Coursera I needed to make  Shiny App, publish is, and set up a pitch.
+
+The following requirements should be met by the app:  
+
+1. Some form of input (widget: textbox, radio button, checkbox, ...)  
+2. Some operation on the ui input in sever.R  
+3. Some reactive output displayed as a result of server calculations  
+4. You must also include enough documentation so that a novice user could use your application.  
+5. The documentation should be at the Shiny website itself. Do not post to an external link. 
+
+All requirements are met, let me explain why.
+
+Input and operations
+========================================================
+
+Looking at the app you will see input on the left sidepanel. This was created with the following code extract.
+
+```{r eval=FALSE}
+# Sidebar with a slider input for number of bins 
+    sidebarLayout(
+        sidebarPanel(
+            helpText("Provide all the input for the calculation"),
+            selectInput("type", label = "Choose the loan type",
+                        choices = c("Linear","Annuities"),
+                        selected = "Linear")))
+    #Further code ommitted.
+```
+
+Differtent supporting functions make use of this code. Reactive part is given on this slide, the non-reactie (supporting) functions are documented on the next slide.
+```{r eval=FALSE}
+    output$plotDebt <- renderPlot({
+        # Make dataframe
+        df <- make_basedf(input$period, input$loan, input$year)
+        if (input$type == "Linear"){df <- calcLinear(df, input$interest)}
+        if (input$type == "Annuities"){df <- calcAnnuities(df, input$interest)}
+        # Plot
+        ggplot(df, aes(x = Year, y = residualDebt)) + geom_line(size = 1) +
+            ggtitle("Developtment of debt") +
+            ylab("Debt in entered currency") + xlab("Year")})
+```
+
+
+Supporting functions
+========================================================
+
+The app has three supporting functions, that are used to keep the reactive code clean. One example is given in this pitch. It is fed an earlier prepared data.frame and interestrate and calculates some variables relevant for annuity loan analysis.
+
+```{r}
+calcAnnuities <- function(df, interest){
+    n <- nrow(df)-1
+    B <- df[1,"residualDebt"]
+    i <- interest / 100
+    a <- i/(1-((1+i)^-n))*B
+    df$yearPayment[-1] <- a
+    df <- df %>% mutate(residualDebt = (1+i)^RYear*B+(a/i)*(1-(1+i)^RYear)) %>%
+        mutate(yearRedemption = lag(residualDebt) - residualDebt) %>%
+        mutate(yearInterest = yearPayment - yearRedemption)
+    df[is.na(df)] <- 0
+    df}
+```
+
+As an example:
+```{r echo=FALSE}
+library(dplyr)
+make_basedf <- function(period, startValue, startYear){
+    df <- data.frame(
+        RYear = seq(0,period,1),
+        Year = seq(startYear,startYear + period,1))
+    df$residualDebt <- NA
+    df$yearRedemption <- NA
+    df$yearInterest <- NA
+    df$yearPayment <- NA
+    df[1,] <- c(0, startYear, startValue, 0, 0, 0)
+    df
+}
+df <- make_basedf(30,250000,2018)
+```
+
+
+```{r}
+head(calcAnnuities(df, 2.15), 5)
+```
+
+Example
+========================================================
+
+A correct functioning app results in something similar to this image:
+
+![alt text](example.png)
